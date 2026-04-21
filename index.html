@@ -333,10 +333,15 @@ function captureImage() {
     progress += 10;
     bar.style.width = progress + "%";
 
-    status.innerText =
-      progress < 100
-        ? "Analyzing image..."
-        : "Toothbrush detected ✔ stopping alarm...";
+    
+    const msgs = [
+  "Analyzing image...",
+  "Scanning 3D image data...",
+  "NASA AI processing...",
+  "Toothbrush detected ✔ stopping alarm..."
+];
+
+status.innerText = msgs[Math.min(Math.floor(progress / 25), msgs.length - 1)];
 
     if (progress >= 100) {
       clearInterval(interval);
