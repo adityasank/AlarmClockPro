@@ -129,7 +129,7 @@
 
 <div class="card">
 
-  <h2>Alarm Klock ⏰</h2>
+  <h2>Alarm clock ⏰</h2>
 
   <div class="time" id="currentTime"></div>
 
@@ -336,15 +336,7 @@ function captureImage() {
     bar.style.width = progress + "%";
 
     
-    const msgs = [
-  "Analyzing image...",
-  "Scanning 3D image data...",
-  "NASA AI processing...",
-  "Toothbrush detected ✔ stopping alarm..."
-];
-
-status.innerText = msgs[Math.min(Math.floor(progress / 25), msgs.length - 1)];
-
+    status.innerText = progress < 100 ? "Analyzing image... Sending image to NASA" : "Toothbrush detected ✔ stopping alarm...";
     if (progress >= 100) {
       clearInterval(interval);
 
