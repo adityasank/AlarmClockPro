@@ -51,7 +51,12 @@
   .stop { background: #ef4444; }
   .camera { background: #22c55e; }
   .gray { background: #6b7280; }
-  .disabled { background: #ccc; cursor: not-allowed; }
+
+  .disabled {
+    background: #ccc !important;
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
 
   .row {
     display: flex;
@@ -109,10 +114,8 @@
     padding: 20px;
     border-radius: 12px;
     width: 280px;
-    text-align: center;
   }
 
-  /* SPINNER */
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
@@ -161,14 +164,36 @@
 <!-- PAYMENT MODAL -->
 <div class="modal" id="paymentModal">
   <div class="box">
+
     <h3>Pay ₹10 to stop alarm</h3>
 
-    <input placeholder="Card Number"/>
-    <input placeholder="Expiry Date"/>
-    <input placeholder="CVV"/>
+    <div id="payForm">
+      <input placeholder="Card Number"/>
+      <input placeholder="Expiry Date"/>
+      <input placeholder="CVV"/>
 
-    <button class="set" onclick="payNow()">Pay Now</button>
-    <button class="gray" onclick="closePayment()">Cancel</button>
+      <button class="set" onclick="startPayment()">Pay Now</button>
+      <button class="gray" onclick="closePayment()">Cancel</button>
+    </div>
+
+    <div id="payProcessing" style="display:none;">
+      <div style="
+        width:40px;
+        height:40px;
+        border:4px solid #ddd;
+        border-top:4px solid #22c55e;
+        border-radius:50%;
+        margin:15px auto;
+        animation: spin 1s linear infinite;
+      "></div>
+      <p>Processing payment...</p>
+    </div>
+
+    <div id="paySuccess" style="display:none;">
+      <p style="color:green;font-weight:bold;">Payment Successful ✔</p>
+      <p>Stopping alarm...</p>
+    </div>
+
   </div>
 </div>
 
@@ -176,6 +201,7 @@
 
 let alarmTimeout;
 let beepInterval;
+let audioCtx;
 let isRinging = false;
 let stream;
 
@@ -185,33 +211,52 @@ setInterval(() => {
     new Date().toLocaleTimeString();
 }, 1000);
 
-/* BEEP */
+/* AUDIO */
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === "suspended") audioCtx.resume();
+}
+
 function playBeep() {
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  initAudio();
 
   beepInterval = setInterval(() => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
 
     osc.type = "square";
     osc.frequency.value = 1000;
     gain.gain.value = 0.15;
 
     osc.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(audioCtx.destination);
 
     osc.start();
-    osc.stop(ctx.currentTime + 0.2);
+    osc.stop(audioCtx.currentTime + 0.2);
   }, 300);
 }
 
 /* ENABLE BUTTONS */
 function enableButtons() {
-  document.getElementById("stopBtn").disabled = false;
-  document.getElementById("cameraBtn").disabled = false;
+  const stopBtn = document.getElementById("stopBtn");
+  const cameraBtn = document.getElementById("cameraBtn");
 
-  document.getElementById("stopBtn").classList.remove("disabled");
-  document.getElementById("cameraBtn").classList.remove("disabled");
+  stopBtn.disabled = false;
+  cameraBtn.disabled = false;
+
+  stopBtn.classList.remove("disabled");
+  cameraBtn.classList.remove("disabled");
+}
+
+/* LOCK BUTTONS (IMPORTANT) */
+function lockControls() {
+  document.getElementById("stopBtn").disabled = true;
+  document.getElementById("cameraBtn").disabled = true;
+
+  document.getElementById("stopBtn").classList.add("disabled");
+  document.getElementById("cameraBtn").classList.add("disabled");
 }
 
 /* ALARM */
@@ -238,10 +283,8 @@ function setAlarm() {
   alarmTimeout = setTimeout(() => {
     isRinging = true;
     document.getElementById("status").innerText = "Wake up! ⏰";
-
     playBeep();
     enableButtons();
-
   }, alarm - now);
 }
 
@@ -260,57 +303,43 @@ async function startCamera() {
   document.getElementById("captureBtn").style.display = "block";
 }
 
-/* CAPTURE + ANALYSIS FIXED */
+/* CAPTURE + ANALYSIS */
 function captureImage() {
 
   const video = document.getElementById("video");
   const canvas = document.getElementById("canvas");
   const preview = document.getElementById("preview");
 
-  const ctx = canvas.getContext("2d");
-
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
 
-  ctx.drawImage(video, 0, 0);
+  canvas.getContext("2d").drawImage(video, 0, 0);
 
   preview.src = canvas.toDataURL("image/png");
   preview.style.display = "block";
 
-  // stop camera instantly
   video.style.display = "none";
   document.getElementById("captureBtn").style.display = "none";
 
-  if (stream) {
-    stream.getTracks().forEach(t => t.stop());
-    stream = null;
-  }
+  if (stream) stream.getTracks().forEach(t => t.stop());
 
-  const progressBox = document.getElementById("progressBox");
-  const progressBar = document.getElementById("progressBar");
+  const bar = document.getElementById("progressBar");
+  const box = document.getElementById("progressBox");
   const status = document.getElementById("status");
 
-  progressBox.style.display = "block";
+  box.style.display = "block";
 
-  const steps = [
-    "Analyzing image...",
-    "Connecting NASA vision system...",
-    "Scanning toothbrush pattern...",
-    "Toothbrush detected ✔ Stopping alarm..."
-  ];
-
-  let i = 0;
   let progress = 0;
 
   const interval = setInterval(() => {
 
     progress += 10;
-    progressBar.style.width = progress + "%";
+    bar.style.width = progress + "%";
 
-    if (i < steps.length) {
-      status.innerText = steps[i];
-      i++;
-    }
+    status.innerText =
+      progress < 100
+        ? "Analyzing image... NASA scan running..."
+        : "Toothbrush detected ✔ stopping alarm...";
 
     if (progress >= 100) {
       clearInterval(interval);
@@ -319,12 +348,12 @@ function captureImage() {
       clearTimeout(alarmTimeout);
       isRinging = false;
 
-      status.innerText = "Alarm stopped ✔";
+      lockControls();
 
       setTimeout(() => {
-        progressBox.style.display = "none";
-        progressBar.style.width = "0%";
-      }, 1200);
+        box.style.display = "none";
+        bar.style.width = "0%";
+      }, 1000);
     }
 
   }, 250);
@@ -333,23 +362,42 @@ function captureImage() {
 /* PAYMENT */
 function openPayment() {
   document.getElementById("paymentModal").style.display = "flex";
+
+  document.getElementById("payForm").style.display = "block";
+  document.getElementById("payProcessing").style.display = "none";
+  document.getElementById("paySuccess").style.display = "none";
 }
 
 function closePayment() {
   document.getElementById("paymentModal").style.display = "none";
 }
 
-function payNow() {
-  document.getElementById("paymentModal").style.display = "none";
+function startPayment() {
+
+  document.getElementById("payForm").style.display = "none";
+  document.getElementById("payProcessing").style.display = "block";
 
   setTimeout(() => {
-    clearInterval(beepInterval);
-    clearTimeout(alarmTimeout);
-    isRinging = false;
 
-    document.getElementById("status").innerText =
-      "Alarm stopped via payment 💳";
-  }, 2000);
+    document.getElementById("payProcessing").style.display = "none";
+    document.getElementById("paySuccess").style.display = "block";
+
+    setTimeout(() => {
+
+      document.getElementById("paymentModal").style.display = "none";
+
+      clearInterval(beepInterval);
+      clearTimeout(alarmTimeout);
+      isRinging = false;
+
+      lockControls();
+
+      document.getElementById("status").innerText =
+        "Alarm stopped via payment 💳";
+
+    }, 1200);
+
+  }, 3000);
 }
 
 /* CLEAR */
@@ -358,10 +406,7 @@ function clearAll() {
   document.getElementById("status").innerText = "";
   document.getElementById("alarmInput").value = "";
 
-  if (stream) {
-    stream.getTracks().forEach(t => t.stop());
-    stream = null;
-  }
+  if (stream) stream.getTracks().forEach(t => t.stop());
 
   document.getElementById("video").style.display = "none";
   document.getElementById("captureBtn").style.display = "none";
