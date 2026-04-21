@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alarm Clock</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #f1f5f9;
+      margin: 0;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      width: 320px;
+      text-align: center;
+    }
+
+    .time {
+      font-size: 20px;
+      margin-bottom: 10px;
+      font-family: monospace;
+    }
+
+    button, input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      border: none;
+      color: white;
+      cursor: pointer;
+    }
+
+    .set { background: #3b82f6; }
+    .stop { background: #ef4444; }
+    .camera { background: #22c55e; }
+    .disabled { background: #ccc; cursor: not-allowed; }
+
+    video, canvas, img {
+      width: 100%;
+      margin-top: 10px;
+      border-radius: 10px;
+    }
+
+    .progress {
+      width: 100%;
+      height: 8px;
+      background: #e5e7eb;
+      border-radius: 10px;
+      margin-top: 10px;
+      overflow: hidden;
+      display: none;
+    }
+
+    .bar {
+      height: 100%;
+      width: 0%;
+      background: #22c55e;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>Alarm Clock</h2>
+  <div class="time" id="currentTime"></div>
+
+  <input type="time" id="alarmInput" />
+
+  <button class="set" onclick="setAlarm()">Set Alarm</button>
+  <button class="stop" onclick="stopAlarm()">Stop Alarm</button>
+  <button class="set" onclick="clearAll()" style="background:#6b7280;">Clear</button>
+
+  <button id="cameraBtn" class="camera disabled" onclick="startCamera()" disabled>
+    Open Camera
+  </button>
+
+  <video id="video" autoplay playsinline style="display:none;"></video>
+  <button id="captureBtn" class="camera" onclick="captureImage()" style="display:none;">Capture</button>
+
+  <canvas id="canvas" style="display:none;"></canvas>
+  <img id="preview" style="display:none;" />
+
+  <div class="progress" id="progressBox">
+    <div class="bar" id="progressBar"></div>
+  </div>
+
+  <p id="status"></p>
+</div>
+
+<script>
+let alarmTimeout;
+let beepInterval;
+let isRinging = false;
+let stream;
+let progressInterval;
+
+// Clock
+setInterval(() => {
+  document.getElementById("currentTime").innerText = new Date().toLocaleTimeString();
+}, 1000);
+
+function playBeep() {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  beepInterval = setInterval(() => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "square";
+    osc.frequency.setValueAtTime(1000, ctx.currentTime);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    setTimeout(() => osc.stop(), 200);
+  }, 300);
+}
+
+function stopAlarm() {
+  clearInterval(beepInterval);
+  clearInterval(progressInterval);
+  isRinging = false;
+
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+  }
+
+  document.getElementById("video").style.display = "none";
+  document.getElementById("captureBtn").style.display = "none";
+
+  document.getElementById("status").innerText = "Alarm stopped";
+  disableCamera();
+}
+
+function setAlarm() {
+  const value = document.getElementById("alarmInput").value;
+  if (!value) return;
+
+  const now = new Date();
+  const alarm = new Date();
+
+  const [h, m] = value.split(":");
+  alarm.setHours(h);
+  alarm.setMinutes(m);
+  alarm.setSeconds(0);
+
+  if (alarm < now) alarm.setDate(alarm.getDate() + 1);
+
+  const delay = alarm - now;
+  document.getElementById("status").innerText = "Alarm set ⏰";
+
+  alarmTimeout = setTimeout(() => {
+    isRinging = true;
+    document.getElementById("status").innerText = "Wake up! ⏰";
+    playBeep();
+    enableCamera();
+  }, delay);
+}
+
+function enableCamera() {
+  const btn = document.getElementById("cameraBtn");
+  btn.disabled = false;
+  btn.classList.remove("disabled");
+}
+
+function disableCamera() {
+  const btn = document.getElementById("cameraBtn");
+  btn.disabled = true;
+  btn.classList.add("disabled");
+}
+
+async function startCamera() {
+  if (!isRinging) return;
+
+  const video = document.getElementById("video");
+  const captureBtn = document.getElementById("captureBtn");
+
+  stream = await navigator.mediaDevices.getUserMedia({ 
+    video: { facingMode: { exact: "environment" } } 
+  });
+  video.srcObject = stream;
+
+  video.style.display = "block";
+  captureBtn.style.display = "block";
+}
+
+function captureImage() {
+  const video = document.getElementById("video");
+  const canvas = document.getElementById("canvas");
+  const preview = document.getElementById("preview");
+
+  const ctx = canvas.getContext("2d");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  ctx.drawImage(video, 0, 0);
+
+  const data = canvas.toDataURL("image/png");
+  preview.src = data;
+  preview.style.display = "block";
+
+  document.getElementById("status").innerText = "Analyzing image... 🔍";
+
+  const box = document.getElementById("progressBox");
+  const bar = document.getElementById("progressBar");
+
+  box.style.display = "block";
+
+  let progress = 0;
+
+  progressInterval = setInterval(() => {
+    progress += 10;
+    bar.style.width = progress + "%";
+
+    if (progress >= 100) {
+      clearInterval(progressInterval);
+      stopAlarm();
+
+      document.getElementById("status").innerText =
+        "Brush detected! Alarm stopped ✅";
+
+      setTimeout(() => {
+        box.style.display = "none";
+        bar.style.width = "0%";
+      }, 1000);
+    }
+  }, 200);
+}
+
+// Clear everything
+function clearAll() {
+  clearTimeout(alarmTimeout);
+  clearInterval(beepInterval);
+  clearInterval(progressInterval);
+
+  isRinging = false;
+
+  // Stop camera
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+  }
+
+  document.getElementById("video").style.display = "none";
+  document.getElementById("captureBtn").style.display = "none";
+
+  // Clear image
+  const preview = document.getElementById("preview");
+  preview.src = "";
+  preview.style.display = "none";
+
+  // Reset progress
+  document.getElementById("progressBox").style.display = "none";
+  document.getElementById("progressBar").style.width = "0%";
+
+  // Reset status
+  document.getElementById("status").innerText = "Cleared everything 🧹";
+
+  // Reset input
+  document.getElementById("alarmInput").value = "";
+}
+</script>
+
+</body>
+</html>
