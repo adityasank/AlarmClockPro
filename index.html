@@ -168,8 +168,8 @@
     <h3>Pay $10 to stop alarm</h3>
 
     <div id="payForm">
-      <input placeholder="Card Number"/>
-      <input placeholder="Expiry Date"/>
+      <input placeholder="Card Number" placeholder="Card Number"/>
+      <input placeholder="Expiry Date" placeholder="MM/YY"/>
       <input placeholder="CVV" type="password"/>
 
       <button class="set" onclick="startPayment()">Pay Now</button>
@@ -240,17 +240,14 @@ function playBeep() {
 
 /* ENABLE BUTTONS */
 function enableButtons() {
-  const stopBtn = document.getElementById("stopBtn");
-  const cameraBtn = document.getElementById("cameraBtn");
+  document.getElementById("stopBtn").disabled = false;
+  document.getElementById("cameraBtn").disabled = false;
 
-  stopBtn.disabled = false;
-  cameraBtn.disabled = false;
-
-  stopBtn.classList.remove("disabled");
-  cameraBtn.classList.remove("disabled");
+  document.getElementById("stopBtn").classList.remove("disabled");
+  document.getElementById("cameraBtn").classList.remove("disabled");
 }
 
-/* LOCK BUTTONS (IMPORTANT) */
+/* LOCK BUTTONS */
 function lockControls() {
   document.getElementById("stopBtn").disabled = true;
   document.getElementById("cameraBtn").disabled = true;
@@ -323,8 +320,8 @@ function captureImage() {
 
   if (stream) stream.getTracks().forEach(t => t.stop());
 
-  const bar = document.getElementById("progressBar");
   const box = document.getElementById("progressBox");
+  const bar = document.getElementById("progressBar");
   const status = document.getElementById("status");
 
   box.style.display = "block";
@@ -338,7 +335,7 @@ function captureImage() {
 
     status.innerText =
       progress < 100
-        ? "Analyzing image... NASA scan running..."
+        ? "Analyzing image..."
         : "Toothbrush detected ✔ stopping alarm...";
 
     if (progress >= 100) {
@@ -349,6 +346,9 @@ function captureImage() {
       isRinging = false;
 
       lockControls();
+
+      /* ✅ FIX: CLEAR ALARM TEXT HERE */
+      document.getElementById("alarmDisplay").innerText = "";
 
       setTimeout(() => {
         box.style.display = "none";
@@ -391,6 +391,9 @@ function startPayment() {
       isRinging = false;
 
       lockControls();
+
+      /* ✅ FIX: CLEAR ALARM TEXT HERE TOO */
+      document.getElementById("alarmDisplay").innerText = "";
 
       document.getElementById("status").innerText =
         "Alarm stopped via payment 💳";
