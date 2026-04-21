@@ -143,15 +143,13 @@
   <p id="status"></p>
 
   <video id="video" autoplay playsinline style="display:none;"></video>
-  <button id="captureBtn" class="camera" style="display:none;" onclick="captureImage()">Capture</button>
+
+  <button id="captureBtn" class="camera" style="display:none;" onclick="captureImage()">
+    Capture
+  </button>
 
   <canvas id="canvas" style="display:none;"></canvas>
   <img id="preview" style="display:none;" />
-
-  <p id="analyzeText" style="display:none;">Connecting to mission control...</p>
-  <p id="subText" style="display:none; font-size:12px; color:gray;">
-    Syncing satellite data...
-  </p>
 
   <div class="progress" id="progressBox">
     <div class="bar" id="progressBar"></div>
@@ -163,35 +161,14 @@
 <!-- PAYMENT MODAL -->
 <div class="modal" id="paymentModal">
   <div class="box">
+    <h3>Pay ₹10 to stop alarm</h3>
 
-    <h3 id="payTitle">Pay ₹10 to stop alarm</h3>
+    <input placeholder="Card Number"/>
+    <input placeholder="Expiry Date"/>
+    <input placeholder="CVV"/>
 
-    <div id="payForm">
-      <input placeholder="Card Number"/>
-      <input placeholder="Expiry Date"/>
-      <input placeholder="CVV"/>
-
-      <button class="set" onclick="startPayment()">Pay Now</button>
-      <button class="gray" onclick="closePayment()">Cancel</button>
-    </div>
-
-    <div id="payProcessing" style="display:none;">
-      <div style="
-        width:40px;
-        height:40px;
-        border:4px solid #ddd;
-        border-top:4px solid #22c55e;
-        border-radius:50%;
-        margin:15px auto;
-        animation: spin 1s linear infinite;
-      "></div>
-      <p>Processing payment...</p>
-    </div>
-
-    <p id="paySuccess" style="display:none; color:green;">
-      Payment Successful ✔
-    </p>
-
+    <button class="set" onclick="payNow()">Pay Now</button>
+    <button class="gray" onclick="closePayment()">Cancel</button>
   </div>
 </div>
 
@@ -199,7 +176,6 @@
 
 let alarmTimeout;
 let beepInterval;
-let audioCtx;
 let isRinging = false;
 let stream;
 
@@ -209,30 +185,23 @@ setInterval(() => {
     new Date().toLocaleTimeString();
 }, 1000);
 
-/* AUDIO */
-function initAudio() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  if (audioCtx.state === "suspended") audioCtx.resume();
-}
-
+/* BEEP */
 function playBeep() {
-  initAudio();
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
 
   beepInterval = setInterval(() => {
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
 
     osc.type = "square";
     osc.frequency.value = 1000;
     gain.gain.value = 0.15;
 
     osc.connect(gain);
-    gain.connect(audioCtx.destination);
+    gain.connect(ctx.destination);
 
     osc.start();
-    osc.stop(audioCtx.currentTime + 0.2);
+    osc.stop(ctx.currentTime + 0.2);
   }, 300);
 }
 
@@ -291,13 +260,15 @@ async function startCamera() {
   document.getElementById("captureBtn").style.display = "block";
 }
 
-/* CAPTURE */
+/* CAPTURE + ANALYSIS FIXED */
 function captureImage() {
+
   const video = document.getElementById("video");
   const canvas = document.getElementById("canvas");
   const preview = document.getElementById("preview");
 
   const ctx = canvas.getContext("2d");
+
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
 
@@ -306,6 +277,7 @@ function captureImage() {
   preview.src = canvas.toDataURL("image/png");
   preview.style.display = "block";
 
+  // stop camera instantly
   video.style.display = "none";
   document.getElementById("captureBtn").style.display = "none";
 
@@ -314,55 +286,86 @@ function captureImage() {
     stream = null;
   }
 
-  document.getElementById("status").innerText =
-    "Analyzing image... 🔍";
+  const progressBox = document.getElementById("progressBox");
+  const progressBar = document.getElementById("progressBar");
+  const status = document.getElementById("status");
+
+  progressBox.style.display = "block";
+
+  const steps = [
+    "Analyzing image...",
+    "Connecting NASA vision system...",
+    "Scanning toothbrush pattern...",
+    "Toothbrush detected ✔ Stopping alarm..."
+  ];
+
+  let i = 0;
+  let progress = 0;
+
+  const interval = setInterval(() => {
+
+    progress += 10;
+    progressBar.style.width = progress + "%";
+
+    if (i < steps.length) {
+      status.innerText = steps[i];
+      i++;
+    }
+
+    if (progress >= 100) {
+      clearInterval(interval);
+
+      clearInterval(beepInterval);
+      clearTimeout(alarmTimeout);
+      isRinging = false;
+
+      status.innerText = "Alarm stopped ✔";
+
+      setTimeout(() => {
+        progressBox.style.display = "none";
+        progressBar.style.width = "0%";
+      }, 1200);
+    }
+
+  }, 250);
 }
 
 /* PAYMENT */
 function openPayment() {
   document.getElementById("paymentModal").style.display = "flex";
-
-  document.getElementById("payForm").style.display = "block";
-  document.getElementById("payProcessing").style.display = "none";
-  document.getElementById("paySuccess").style.display = "none";
 }
 
 function closePayment() {
   document.getElementById("paymentModal").style.display = "none";
 }
 
-function startPayment() {
-
-  document.getElementById("payForm").style.display = "none";
-  document.getElementById("payProcessing").style.display = "block";
+function payNow() {
+  document.getElementById("paymentModal").style.display = "none";
 
   setTimeout(() => {
+    clearInterval(beepInterval);
+    clearTimeout(alarmTimeout);
+    isRinging = false;
 
-    document.getElementById("payProcessing").style.display = "none";
-    document.getElementById("paySuccess").style.display = "block";
-
-    setTimeout(() => {
-
-      document.getElementById("paymentModal").style.display = "none";
-
-      clearInterval(beepInterval);
-      clearTimeout(alarmTimeout);
-
-      isRinging = false;
-
-      document.getElementById("status").innerText =
-        "Alarm stopped via payment 💳";
-
-    }, 1200);
-
-  }, 3000);
+    document.getElementById("status").innerText =
+      "Alarm stopped via payment 💳";
+  }, 2000);
 }
 
-/* CLEAR UI ONLY */
+/* CLEAR */
 function clearAll() {
   document.getElementById("alarmDisplay").innerText = "";
   document.getElementById("status").innerText = "";
   document.getElementById("alarmInput").value = "";
+
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+
+  document.getElementById("video").style.display = "none";
+  document.getElementById("captureBtn").style.display = "none";
+  document.getElementById("preview").style.display = "none";
 }
 
 </script>
