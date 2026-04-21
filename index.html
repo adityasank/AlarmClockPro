@@ -31,26 +31,20 @@
       font-family: monospace;
     }
 
-    /* ✅ FIXED ALIGNMENT */
-    input, button {
+    button, input {
       width: 100%;
-      box-sizing: border-box;
-      height: 42px;
-      border-radius: 8px;
-      margin-top: 8px;
-    }
-
-    input {
       padding: 10px;
+      margin-top: 8px;
+      border-radius: 8px;
       border: 1px solid #ccc;
-      font-size: 14px;
+      box-sizing: border-box;
     }
 
     button {
       border: none;
       color: white;
       cursor: pointer;
-      font-size: 14px;
+      height: 42px;
     }
 
     .set { background: #3b82f6; }
@@ -215,6 +209,7 @@ function captureImage() {
   const video = document.getElementById("video");
   const canvas = document.getElementById("canvas");
   const preview = document.getElementById("preview");
+  const captureBtn = document.getElementById("captureBtn");
 
   const ctx = canvas.getContext("2d");
   canvas.width = video.videoWidth;
@@ -225,6 +220,15 @@ function captureImage() {
   const data = canvas.toDataURL("image/png");
   preview.src = data;
   preview.style.display = "block";
+
+  // ✅ FIX: hide camera instantly
+  video.style.display = "none";
+  captureBtn.style.display = "none";
+
+  // stop stream
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+  }
 
   document.getElementById("status").innerText = "Analyzing image... 🔍";
 
