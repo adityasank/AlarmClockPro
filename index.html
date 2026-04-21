@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Alarm Clock</title>
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -30,18 +31,26 @@
       font-family: monospace;
     }
 
-    button, input {
+    /* ✅ FIXED ALIGNMENT */
+    input, button {
       width: 100%;
-      padding: 10px;
-      margin-top: 8px;
+      box-sizing: border-box;
+      height: 42px;
       border-radius: 8px;
+      margin-top: 8px;
+    }
+
+    input {
+      padding: 10px;
       border: 1px solid #ccc;
+      font-size: 14px;
     }
 
     button {
       border: none;
       color: white;
       cursor: pointer;
+      font-size: 14px;
     }
 
     .set { background: #3b82f6; }
@@ -72,6 +81,7 @@
     }
   </style>
 </head>
+
 <body>
 
 <div class="card">
@@ -89,7 +99,9 @@
   </button>
 
   <video id="video" autoplay playsinline style="display:none;"></video>
-  <button id="captureBtn" class="camera" onclick="captureImage()" style="display:none;">Capture</button>
+  <button id="captureBtn" class="camera" onclick="captureImage()" style="display:none;">
+    Capture
+  </button>
 
   <canvas id="canvas" style="display:none;"></canvas>
   <img id="preview" style="display:none;" />
@@ -110,7 +122,8 @@ let progressInterval;
 
 // Clock
 setInterval(() => {
-  document.getElementById("currentTime").innerText = new Date().toLocaleTimeString();
+  document.getElementById("currentTime").innerText =
+    new Date().toLocaleTimeString();
 }, 1000);
 
 function playBeep() {
@@ -189,11 +202,11 @@ async function startCamera() {
   const video = document.getElementById("video");
   const captureBtn = document.getElementById("captureBtn");
 
-  stream = await navigator.mediaDevices.getUserMedia({ 
-    video: { facingMode: { exact: "environment" } } 
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: { exact: "environment" } }
   });
-  video.srcObject = stream;
 
+  video.srcObject = stream;
   video.style.display = "block";
   captureBtn.style.display = "block";
 }
@@ -241,7 +254,6 @@ function captureImage() {
   }, 200);
 }
 
-// Clear everything
 function clearAll() {
   clearTimeout(alarmTimeout);
   clearInterval(beepInterval);
@@ -249,7 +261,6 @@ function clearAll() {
 
   isRinging = false;
 
-  // Stop camera
   if (stream) {
     stream.getTracks().forEach(track => track.stop());
   }
@@ -257,19 +268,14 @@ function clearAll() {
   document.getElementById("video").style.display = "none";
   document.getElementById("captureBtn").style.display = "none";
 
-  // Clear image
   const preview = document.getElementById("preview");
   preview.src = "";
   preview.style.display = "none";
 
-  // Reset progress
   document.getElementById("progressBox").style.display = "none";
   document.getElementById("progressBar").style.width = "0%";
 
-  // Reset status
   document.getElementById("status").innerText = "Cleared everything 🧹";
-
-  // Reset input
   document.getElementById("alarmInput").value = "";
 }
 </script>
